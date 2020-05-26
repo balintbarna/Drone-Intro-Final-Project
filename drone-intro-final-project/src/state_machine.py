@@ -6,7 +6,8 @@ from geometry_msgs.msg import TwistStamped, PoseStamped, PoseWithCovarianceStamp
 import rospy
 from simple_pid import PID
 
-from message_tools import orientation_to_yaw, yaw_to_orientation, point_to_arr, arr_to_point, create_setpoint_message_pos_yaw
+from message_tools import orientation_to_yaw, yaw_to_orientation, point_to_arr, arr_to_point, create_setpoint_message_pos_yaw, create_setpoint_message_xyz_yaw
+from scipy.spatial.transform import Rotation 
 
 class StateMachine():
     class States(Enum):
@@ -48,8 +49,9 @@ class StateMachine():
                 self.set_current_state(self._next_value)
 
         elif cur == self.States.TAKE_OFF:
-            target = Point(3, 3, 10)
-            self._mav1.set_target_pos(target)
+            target = create_setpoint_message_xyz_yaw(0, 4, 10, 1.5)
+            self._mav1.max_speed = 3
+            self._mav1.set_target_pose(target)
             self.set_current_state(self.States.WAITING_TO_ARRIVE)
             self.set_next_state(self.States.CLOSE_POSE_ERROR)
         
@@ -65,13 +67,21 @@ class StateMachine():
                 self.set_current_state(self.States.IDLE)
                 print("ALIGNED")
                 return
+            # match coordinate system to world
+            (rx, ry, rz) = (-90, 180, 0)
+            rm = Rotation.from_euler('zyx', [rx, ry, rz], degrees=True)
+            pose_error_arr = rm.apply(pose_error_arr)
             # calc angle
             current_yaw = orientation_to_yaw(self._mav1.current_pose.pose.orientation)
+            (rx, ry, rz) = (current_yaw, 0, 0)
+            rm = Rotation.from_euler('zyx', [rx, ry, rz], degrees=False)
+            pose_error_arr = rm.apply(pose_error_arr)
             # target_yaw = current_yaw + angle_error
             # calc pos
             current_pos = point_to_arr(self._mav1.current_pose.pose.position)
-            target_pos = current_pos - pose_error_arr
+            target_pos = current_pos + pose_error_arr
             target_point = arr_to_point(target_pos)
             # send
             # target_pose = create_setpoint_message_pos_yaw(target_point, target_yaw)
+            self._mav1.max_speed = 0.5
             self._mav1.set_target_pos(target_point)
