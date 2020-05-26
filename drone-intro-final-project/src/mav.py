@@ -26,6 +26,7 @@ class Mav():
         self.UAV_state = mavros_msgs.msg.State()
         self.last_request = rospy.Time.now()
         self.max_speed = 1
+        self.fly = True
 
         mavros.set_namespace(namespace)
 
@@ -51,6 +52,19 @@ class Mav():
         self._set_states()
     
     def _set_states(self):
+        if self.fly:
+            self._arm_and_offboard()
+        else:
+            self._autoland()
+
+    def _autoland(self):
+        if rospy.Time.now() - self.last_request > rospy.Duration(1.0):
+            if self.UAV_state.mode != 'AUTO.LAND':
+                self.set_mode(0, 'AUTO.LAND')
+                print("Enabling autoland mode")
+                self.last_request = rospy.Time.now()
+    
+    def _arm_and_offboard(self):
         if rospy.Time.now() - self.last_request > rospy.Duration(1.0):
             if self.UAV_state.mode != "OFFBOARD":
                 self.set_mode(0, 'OFFBOARD')
@@ -150,3 +164,9 @@ class Mav():
         pos = self.target_pose.pose.position
         pose = create_setpoint_message_pos_yaw(pos, yaw)
         self.set_target_pose(pose)
+    
+    def land(self):
+        self.fly = False
+    
+    def takeoff(self):
+        self.fly = True
