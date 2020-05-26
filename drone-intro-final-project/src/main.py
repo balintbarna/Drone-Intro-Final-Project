@@ -53,6 +53,7 @@ class MainNode():
         print("new target pose: "+str(arr.tolist()))
         pose = create_setpoint_message_xyz_yaw(arr[0], arr[1], arr[2], arr[3])
         self.mav1.set_target_pose(pose)
+        self.mav1.max_speed = 1
         self.sm.set_next_state(self.sm.States.IDLE)
         self.sm.set_current_state(self.sm.States.WAITING_TO_ARRIVE)
         pass
