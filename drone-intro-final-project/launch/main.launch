@@ -1,9 +1,8 @@
 <?xml version="1.0"?>
 <launch>
-    <include file="$(find px4)/launch/mavros_posix_sitl.launch">
-        <arg name="vehicle" value="iris_fpv_cam"/>
-        <!-- <arg name="world" value="<path-to-world>"/> -->
+    <include file="$(find drone-intro-final-project)/launch/sim.launch">
     </include>
 
+    <node name="aruco" pkg="drone-intro-final-project" type="aruco_detector.py" output="screen" required="true"/>
     <node name="control" pkg="drone-intro-final-project" type="main.py" output="screen" required="true"/>
 </launch>
