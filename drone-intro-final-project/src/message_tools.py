@@ -14,6 +14,10 @@ def orientation_to_yaw(orientation = Quaternion()):
     yaw = euler_from_quaternion(quat_tf)[2]
     return yaw
 
+def orientation_to_quat_array(orientation = Quaternion()):
+    quat_tf = [orientation.x, orientation.y, orientation.z, orientation.w]
+    return quat_tf
+
 def create_setpoint_message_xyz_yaw(x, y, z, yaw = 0):
     pos = Point(x,y,z)
     return create_setpoint_message_pos_yaw(pos, yaw)
