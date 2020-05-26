@@ -4,9 +4,8 @@ import numpy as np
 
 from geometry_msgs.msg import TwistStamped, PoseStamped, PoseWithCovarianceStamped, Vector3, Vector3Stamped, Point, Quaternion, Pose
 import rospy
-from simple_pid import PID
 
-from message_tools import orientation_to_yaw, yaw_to_orientation, point_to_arr, arr_to_point, create_setpoint_message_pos_yaw, create_setpoint_message_xyz_yaw
+from message_tools import orientation_to_quat_array, orientation_to_yaw, yaw_to_orientation, point_to_arr, arr_to_point, create_setpoint_message_pos_yaw, create_setpoint_message_xyz_yaw
 from scipy.spatial.transform import Rotation 
 
 class StateMachine():
@@ -49,17 +48,28 @@ class StateMachine():
                 self.set_current_state(self._next_value)
 
         elif cur == self.States.TAKE_OFF:
-            target = create_setpoint_message_xyz_yaw(0, 4, 10, 1.5)
+            # target = create_setpoint_message_xyz_yaw(1, 1, 10, 0)
+            target = create_setpoint_message_xyz_yaw(7, 7, 10, 0)
             self._mav1.max_speed = 3
             self._mav1.set_target_pose(target)
             self.set_current_state(self.States.WAITING_TO_ARRIVE)
             self.set_next_state(self.States.CLOSE_POSE_ERROR)
+            self._mav1.takeoff()
         
         elif cur == self.States.CLOSE_POSE_ERROR:
+            # check if altitude is very low
+            position = self._mav1.current_pose.pose.position
+            current_pos = point_to_arr(position)
+            altitude = current_pos[2]
+            if altitude < 0.5:
+                # land
+                self._mav1.set_target_pos(position)
+                self.set_current_state(self.States.IDLE)
+                self._mav1.land()
+                return
             if self.pose_error == None:
                 return
             pose_error_arr = point_to_arr(self.pose_error)
-            # angle_error = orientation_to_yaw(self.pose_error.orientation)
             self.pose_error = None
             magnitude = np.linalg.norm(pose_error_arr)
             # check if limit is reached
@@ -71,17 +81,20 @@ class StateMachine():
             (rx, ry, rz) = (-90, 180, 0)
             rm = Rotation.from_euler('zyx', [rx, ry, rz], degrees=True)
             pose_error_arr = rm.apply(pose_error_arr)
-            # calc angle
-            current_yaw = orientation_to_yaw(self._mav1.current_pose.pose.orientation)
-            (rx, ry, rz) = (current_yaw, 0, 0)
-            rm = Rotation.from_euler('zyx', [rx, ry, rz], degrees=False)
+            # correct coordinate system for rotation of drone
+            orientation = self._mav1.current_pose.pose.orientation
+            quat_arr = orientation_to_quat_array(orientation)
+            rm = Rotation.from_quat(quat_arr)
             pose_error_arr = rm.apply(pose_error_arr)
-            # target_yaw = current_yaw + angle_error
-            # calc pos
-            current_pos = point_to_arr(self._mav1.current_pose.pose.position)
+            # if XY error is large, zero error in Z, so it has change to center before it goes out of picture
+            xyarr = pose_error_arr[:2]
+            xymagn = np.linalg.norm(xyarr)
+            if xymagn > 0.5:
+                pose_error_arr[2] = 0
+            print(pose_error_arr)
+            # calc target pos
             target_pos = current_pos + pose_error_arr
             target_point = arr_to_point(target_pos)
             # send
-            # target_pose = create_setpoint_message_pos_yaw(target_point, target_yaw)
-            self._mav1.max_speed = 0.5
+            self._mav1.max_speed = 1
             self._mav1.set_target_pos(target_point)
