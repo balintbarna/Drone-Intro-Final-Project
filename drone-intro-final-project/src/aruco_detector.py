@@ -15,15 +15,14 @@ class ArUcoDetector():
         publish_topic="/aruco_detector/marker_pose"
         self.marker_id=23
         self.camera_matrix=np.array([
-            [277.191356, 0, 320.5],
-            [0, 277.191356, 240.5],
+            [277.191356, 0, 160],
+            [0, 277.191356, 120],
             [0, 0, 1]
         ])
         self.aruco_length=2.0
         self.parameters = cv2.aruco.DetectorParameters_create()
         self.dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
         self.bridge = CvBridge()
-        self.offset_array = np.array([-2.5,-1.8,0])
 
         self.sub = rospy.Subscriber(
             subscribe_topic,
@@ -51,13 +50,13 @@ class ArUcoDetector():
             # TODO filter for ID
 
             rvecs, tvecs = cv2.aruco.estimatePoseSingleMarkers(
-                corners,
+                corners[0],
                 self.aruco_length,
                 self.camera_matrix,
                 np.zeros(4)
             )
             tvec = tvecs[0][0]
-            tvec -= self.offset_array
+            print(tvec)
             self.pub.publish(Point(tvec[0], tvec[1], tvec[2]))
 
 
