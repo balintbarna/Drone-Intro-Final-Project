@@ -14,6 +14,7 @@ class StateMachine():
         WAITING_TO_ARRIVE = "wait_arrive"
         TAKE_OFF = "takeoff"
         CLOSE_POSE_ERROR = "pose_error"
+        HOVER_ABOVE_MARKER = "hover_marker"
 
     def __init__(self):
         self._current_value = self.States.IDLE
@@ -91,10 +92,36 @@ class StateMachine():
             xymagn = np.linalg.norm(xyarr)
             if xymagn > 0.5:
                 pose_error_arr[2] = 0
-            print(pose_error_arr)
             # calc target pos
             target_pos = current_pos + pose_error_arr
             target_point = arr_to_point(target_pos)
             # send
             self._mav1.max_speed = 1
             self._mav1.set_target_pos(target_point)
+
+        elif cur == self.States.HOVER_ABOVE_MARKER:
+            position = self._mav1.current_pose.pose.position
+            current_pos = point_to_arr(position)
+            if self.pose_error == None:
+                return
+            pose_error_arr = point_to_arr(self.pose_error)
+            self.pose_error = None
+            magnitude = np.linalg.norm(pose_error_arr)
+            # match coordinate system to world
+            (rx, ry, rz) = (-90, 180, 0)
+            rm = Rotation.from_euler('zyx', [rx, ry, rz], degrees=True)
+            pose_error_arr = rm.apply(pose_error_arr)
+            # correct coordinate system for rotation of drone
+            orientation = self._mav1.current_pose.pose.orientation
+            quat_arr = orientation_to_quat_array(orientation)
+            rm = Rotation.from_quat(quat_arr)
+            pose_error_arr = rm.apply(pose_error_arr)
+            # Z error always 0 to hover
+            pose_error_arr[2] = 0
+            # calc target pos
+            target_pos = current_pos + pose_error_arr
+            target_point = arr_to_point(target_pos)
+            # send
+            self._mav1.max_speed = 1
+            self._mav1.set_target_pos(target_point)
+
