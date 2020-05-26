@@ -5,6 +5,7 @@ import cv2
 import rospy
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import TwistStamped, PoseStamped, PoseWithCovarianceStamped, Vector3, Vector3Stamped, Point, Quaternion, Pose
 
 class ArUcoDetector():
     def __init__(self):
@@ -22,6 +23,7 @@ class ArUcoDetector():
         self.parameters = cv2.aruco.DetectorParameters_create()
         self.dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
         self.bridge = CvBridge()
+        self.offset_array = np.array([-2.5,-1.8,0])
 
         self.sub = rospy.Subscriber(
             subscribe_topic,
@@ -30,11 +32,11 @@ class ArUcoDetector():
             queue_size=1
         )
 
-        # self.pub = rospy.Publisher(
-        #         publish_topic,
-        #         markerpose,
-        #         queue_size=1
-        # )
+        self.pub = rospy.Publisher(
+                publish_topic,
+                Point,
+                queue_size=1
+        )
 
     def on_new_image(self, topic):
         frame = self.bridge.imgmsg_to_cv2(topic, "bgr8")
@@ -54,9 +56,9 @@ class ArUcoDetector():
                 self.camera_matrix,
                 np.zeros(4)
             )
-            xoffset = -2.5
-            yoffset = -1.8
-            print("TVECVS\n"+str(tvecs[0][0]-np.array([xoffset,yoffset,0])))
+            tvec = tvecs[0][0]
+            tvec -= self.offset_array
+            self.pub.publish(Point(tvec[0], tvec[1], tvec[2]))
 
 
 if __name__ == '__main__':
