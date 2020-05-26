@@ -25,6 +25,7 @@ class Mav():
         self.target_pose = PoseStamped()
         self.UAV_state = mavros_msgs.msg.State()
         self.last_request = rospy.Time.now()
+        self.max_speed = 1
 
         mavros.set_namespace(namespace)
 
@@ -77,7 +78,7 @@ class Mav():
         target_arr = point_to_arr(point)
         diff = target_arr - current
         diffsize = np.linalg.norm(diff)
-        max_dist = 2
+        max_dist = self.max_speed
         if diffsize < max_dist:
             return self.target_pose
         ratio = diffsize / max_dist
