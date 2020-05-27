@@ -7,6 +7,7 @@ import mavros.setpoint
 import mavros.command
 from mavros_msgs.msg import State, PositionTarget
 import mavros_msgs.srv
+from mavros_msgs.srv import CommandLong
 import sys
 import signal
 import math
@@ -37,6 +38,7 @@ class Mav():
 
         # setup service
         self.set_arming = rospy.ServiceProxy(mavros.get_topic('cmd', 'arming'), mavros_msgs.srv.CommandBool)
+        self.set_command = rospy.ServiceProxy('mavros/cmd/command', CommandLong, persistent=True)
         self.set_mode = rospy.ServiceProxy(mavros.get_topic('set_mode'), mavros_msgs.srv.SetMode)
 
         # setup subscriber
@@ -170,3 +172,7 @@ class Mav():
     
     def takeoff(self):
         self.fly = True
+
+    def deploy_parachute(self):
+        print("Deploing parachute...")
+        self.set_command(command=185, param1=1)
